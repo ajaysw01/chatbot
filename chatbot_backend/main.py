@@ -28,16 +28,14 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Simple in-memory rate limiting (per IP)
-RATE_LIMIT = 10  # requests
-RATE_PERIOD = 60  # seconds
+RATE_LIMIT = 10
+RATE_PERIOD = 60
 ip_requests = defaultdict(lambda: deque())
 
 
 def is_rate_limited(ip: str) -> bool:
     now = time.time()
     dq = ip_requests[ip]
-    # Remove old requests
     while dq and now - dq[0] > RATE_PERIOD:
         dq.popleft()
     if len(dq) >= RATE_LIMIT:
@@ -58,7 +56,6 @@ class ChatResponse(BaseModel):
 
 @app.post("/chat", response_model=ChatResponse)
 async def chat(request: Request, body: ChatRequest):
-    # Rate limiting
     client_ip = request.client.host if request.client else "unknown"
     if is_rate_limited(client_ip):
         raise HTTPException(
