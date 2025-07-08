@@ -1,10 +1,7 @@
-
 import React, { useState, useRef } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import type { RootState, AppDispatch } from '../store/store';
-import type { ChatMessage } from '../store/chatSlice';
-import { addMessage } from '../store/chatSlice';
-import { v4 as uuidv4 } from 'uuid';
+import { sendMessage, clearMessages, addBotMessage } from '../store/chatSlice';
 import Box from '@mui/material/Box';
 import TextField from '@mui/material/TextField';
 import Button from '@mui/material/Button';
@@ -15,7 +12,6 @@ import IconButton from '@mui/material/IconButton';
 import CloseIcon from '@mui/icons-material/Close';
 import PersonIcon from '@mui/icons-material/Person';
 import SmartToyIcon from '@mui/icons-material/SmartToy';
-import { fetchBotReply } from '../services/chatbotService';
 import { useTheme } from '@mui/material/styles';
 
 const ChatPopup: React.FC = () => {
@@ -23,12 +19,12 @@ const ChatPopup: React.FC = () => {
   const [dimensions, setDimensions] = useState({ width: 370, height: 520 });
   const popupRef = useRef<HTMLDivElement>(null);
   const messages = useSelector((state: RootState) => state.chat.messages);
+  const loading = useSelector((state: RootState) => state.chat.loading);
+  const error = useSelector((state: RootState) => state.chat.error);
   const dispatch = useDispatch<AppDispatch>();
   const [input, setInput] = useState('');
-  const [loading, setLoading] = useState(false);
   const theme = useTheme();
 
-  // Resizing logic
   const isResizing = useRef<{ type: null | 'left' | 'top' | 'corner', startX: number, startY: number, startW: number, startH: number }>({ type: null, startX: 0, startY: 0, startW: 0, startH: 0 });
 
   const onMouseDown = (type: 'left' | 'top' | 'corner') => (e: React.MouseEvent) => {
@@ -65,42 +61,19 @@ const ChatPopup: React.FC = () => {
     document.removeEventListener('mouseup', onMouseUp);
   };
 
-  const handleSend = async () => {
-    if (!input.trim()) return;
-    const userMsg: ChatMessage = {
-      id: uuidv4(),
-      sender: 'user',
-      text: input,
-    };
-    dispatch(addMessage(userMsg));
+  const handleSend = () => {
+    if (!input.trim() || loading) return;
+    dispatch(sendMessage(input));
     setInput('');
-    setLoading(true);
-    try {
-      const botText = await fetchBotReply(input);
-      const botMsg: ChatMessage = {
-        id: uuidv4(),
-        sender: 'bot',
-        text: botText,
-      };
-      dispatch(addMessage(botMsg));
-    } finally {
-      setLoading(false);
-    }
   };
 
   const handleOpen = () => {
     setOpen(true);
     if (messages.length === 0) {
-      const defaultMsg: ChatMessage = {
-        id: uuidv4(),
-        sender: 'bot',
-        text: 'Hello, how may I help you?',
-      };
-      dispatch(addMessage(defaultMsg));
+      dispatch(addBotMessage('Hello, how may I help you?'));
     }
   };
 
-  // Animation styles
   const popupAnimation = {
     opacity: open ? 1 : 0,
     transform: open ? 'translateY(0)' : 'translateY(40px)',
@@ -288,6 +261,7 @@ const ChatPopup: React.FC = () => {
         </Button>
       </Box>
       {loading && <Box sx={{ textAlign: 'center', mt: -1, mb: 1, color: 'text.secondary', fontSize: 14 }}>Bot is typing...</Box>}
+      {error && <Box sx={{ textAlign: 'center', color: 'error.main', fontSize: 14, mb: 1 }}>{error}</Box>}
     </Box>
   );
 };
